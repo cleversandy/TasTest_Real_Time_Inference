@@ -169,6 +169,7 @@ async function enableCam(event) {
   document.getElementById("chartContainerLeft").style.display = "none";
   document.getElementById("rightFeaturesContainer").style.display = "none";
   document.getElementById("leftFeaturesContainer").style.display = "none";
+  document.getElementById("recordingFpsDisplay").style.display = "none";
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
   document.getElementById("videoContainer").style.display = "block";
   video.style.display = "block";
@@ -267,6 +268,12 @@ async function startRecording(predictCallback, stream) {
     downloadVideoButton.style.display = "inline-flex";
     downloadFeaturesButton.style.display = "inline-flex";
     plotDistanceChart();
+    
+    const recordingFpsDisplay = document.getElementById("recordingFpsDisplay");
+    const actualDuration = savedDistances.length > 1 ? (savedDistances[savedDistances.length - 1].timestamp - savedDistances[0].timestamp) / 1000 : 0;
+    const recordingFps = actualDuration > 0 ? (savedDistances.length / actualDuration).toFixed(2) : 0;
+    recordingFpsDisplay.innerHTML = `Recording FPS: <strong>${recordingFps}</strong> (${savedDistances.length} frames in ${actualDuration.toFixed(2)}s)`;
+    recordingFpsDisplay.style.display = "block";
   } else {
     alert("No hand landmarks detected. Try again!");
   }
@@ -442,28 +449,135 @@ function downloadVideo() {
 let distanceChart = null;
 let leftHandChart = null;
 
-function detectPeaksAndValleys(data, threshold, minDistance) {
-  const peaks = [];
-  const valleys = [];
+function findPeaks(data, options = {}) {
+  const {
+    height = 0.01,
+    threshold = 0.005,
+    distance = 2,
+    prominence = 0.005,
+    width = 2
+  } = options;
   
-  if (!data || data.length < 3) {
-    return { peaks, valleys };
+  const peaks = [];
+  const prominences = [];
+  const leftBases = [];
+  const rightBases = [];
+  
+  if (!data || data.length < 2) {
+    return { peaks, prominences, leftBases, rightBases };
   }
   
-  for (let i = 1; i < data.length - 1; i++) {
+  const n = data.length;
+  
+  for (let i = 1; i < n - 1; i++) {
+    if (data[i] === null) continue;
+    
     const prev = data[i - 1];
     const curr = data[i];
     const next = data[i + 1];
     
-    if (curr === null || prev === null || next === null) continue;
+    if (curr === null) continue;
+    const prevVal = prev !== null ? prev : curr;
+    const nextVal = next !== null ? next : curr;
     
-    if (curr > prev && curr > next) {
-      if (threshold === 0 || Math.abs(curr - prev) >= threshold || Math.abs(curr - next) >= threshold) {
-        if (minDistance === 0 || curr >= minDistance) {
-          peaks.push(i);
+    if (curr > prevVal && curr > nextVal) {
+      if (threshold > 0) {
+        const minDiff = Math.min(
+          Math.abs(curr - prevVal),
+          Math.abs(curr - nextVal)
+        );
+        if (minDiff < threshold) continue;
+      }
+      
+      if (height !== null) {
+        const minHeight = typeof height === 'number' ? height : height[0];
+        if (curr < minHeight) continue;
+      }
+      
+      let leftBase = i;
+      for (let j = i - 1; j >= 0; j--) {
+        if (data[j] !== null && data[j] < curr) {
+          leftBase = j;
+          break;
         }
       }
+      
+      let rightBase = i;
+      for (let j = i + 1; j < n; j++) {
+        if (data[j] !== null && data[j] < curr) {
+          rightBase = j;
+          break;
+        }
+      }
+      
+      let leftMin = curr;
+      for (let j = leftBase; j < i; j++) {
+        if (data[j] !== null && data[j] < leftMin) {
+          leftMin = data[j];
+        }
+      }
+      
+      let rightMin = curr;
+      for (let j = i; j <= rightBase; j++) {
+        if (data[j] !== null && data[j] < rightMin) {
+          rightMin = data[j];
+        }
+      }
+      
+      const baseVal = Math.max(leftMin, rightMin);
+      const prom = curr - baseVal;
+      
+      if (prominence !== null && prom < prominence) continue;
+      
+      peaks.push(i);
+      prominences.push(prom);
+      leftBases.push(leftBase);
+      rightBases.push(rightBase);
     }
+  }
+  
+  if (distance > 1 && peaks.length > 1) {
+    const filteredPeaks = [];
+    const filteredProminences = [];
+    const filteredLeftBases = [];
+    const filteredRightBases = [];
+    
+    filteredPeaks.push(peaks[0]);
+    filteredProminences.push(prominences[0]);
+    filteredLeftBases.push(leftBases[0]);
+    filteredRightBases.push(rightBases[0]);
+    
+    for (let i = 1; i < peaks.length; i++) {
+      const lastKept = filteredPeaks[filteredPeaks.length - 1];
+      if (peaks[i] - lastKept >= distance) {
+        filteredPeaks.push(peaks[i]);
+        filteredProminences.push(prominences[i]);
+        filteredLeftBases.push(leftBases[i]);
+        filteredRightBases.push(rightBases[i]);
+      } else if (prominences[i] > filteredProminences[filteredProminences.length - 1]) {
+        filteredPeaks[filteredPeaks.length - 1] = peaks[i];
+        filteredProminences[filteredProminences.length - 1] = prominences[i];
+        filteredLeftBases[filteredLeftBases.length - 1] = leftBases[i];
+        filteredRightBases[filteredRightBases.length - 1] = rightBases[i];
+      }
+    }
+    
+    return {
+      peaks: filteredPeaks,
+      prominences: filteredProminences,
+      leftBases: filteredLeftBases,
+      rightBases: filteredRightBases
+    };
+  }
+  
+  return { peaks, prominences, leftBases, rightBases };
+}
+
+function findValleys(peaks, data) {
+  const valleys = [];
+  
+  if (!peaks || peaks.length < 2 || !data) {
+    return valleys;
   }
   
   for (let i = 0; i < peaks.length - 1; i++) {
@@ -485,7 +599,33 @@ function detectPeaksAndValleys(data, threshold, minDistance) {
     }
   }
   
-  return { peaks, valleys };
+  return valleys;
+}
+
+function detectPeaksAndValleys(data, options = {}) {
+  const {
+    threshold = 0.01,
+    distance = null,
+    prominence = null,
+    height = null
+  } = options;
+  
+  const peaksResult = findPeaks(data, {
+    threshold,
+    distance: distance || 1,
+    prominence,
+    height
+  });
+  
+  const peaks = peaksResult.peaks;
+  const valleys = findValleys(peaks, data);
+  
+  return {
+    peaks: peaks,
+    valleys: valleys,
+    peakProminences: peaksResult.prominences,
+    peakHeights: peaks.map(i => data[i])
+  };
 }
 
 function createPointStyles(dataLength, peaks, valleys) {
@@ -518,8 +658,19 @@ function plotDistanceChart() {
     leftHandDistances.push(savedDistances[i].leftHand);
   }
   
-  const rightPeaksValleys = detectPeaksAndValleys(rightHandDistances, 0.01, 0.05);
-  const leftPeaksValleys = detectPeaksAndValleys(leftHandDistances, 0.01, 0.05);
+  const rightPeaksValleys = detectPeaksAndValleys(rightHandDistances, {
+    threshold: 0,
+    distance: 1,
+    prominence: 0,
+    height: null
+  });
+  
+  const leftPeaksValleys = detectPeaksAndValleys(leftHandDistances, {
+    threshold: 0,
+    distance: 1,
+    prominence: 0,
+    height: null
+  });
   
   const rightPointStyles = createPointStyles(rightHandDistances.length, rightPeaksValleys.peaks, rightPeaksValleys.valleys);
   const leftPointStyles = createPointStyles(leftHandDistances.length, leftPeaksValleys.peaks, leftPeaksValleys.valleys);
