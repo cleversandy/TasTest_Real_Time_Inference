@@ -2,6 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Pure Frontend Real-time Inference</title>
   <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
   <link href="hand-landmarker.css" rel="stylesheet">
@@ -44,12 +45,12 @@
         </button>
       </div>
       <div style="display: flex; gap: 20px; margin-top: 20px;">
-        <div id="chartContainer" style="display: none; width: 500px; height: 300px; padding: 15px; background: #fafafa; border-radius: 8px; border: 1px solid #ddd;">
+        <div id="chartContainer" style="display: none; width: 500px; max-width: 100%; height: 300px; padding: 15px; background: #fafafa; border-radius: 8px; border: 1px solid #ddd;">
           <canvas id="distanceChart"></canvas>
         </div>
-        <div id="rightFeaturesContainer" style="display: none; padding: 15px; background: #f8f8f8; border-radius: 8px; border: 1px solid #ddd;">
+        <div id="rightFeaturesContainer" style="display: none; padding: 15px; background: #f8f8f8; border-radius: 8px; border: 1px solid #ddd; max-width: 100%;">
           <h4 style="margin: 0 0 12px 0; color: #00aa00; border-bottom: 2px solid #00aa00; padding-bottom: 8px;">Right Hand Features</h4>
-          <table style="width: 220px; border-collapse: collapse; font-size: 14px;">
+          <table style="width: 220px; max-width: 100%; border-collapse: collapse; font-size: 14px;">
             <tr style="background: #e8e8e8;"><th style="padding: 8px; text-align: left; border-bottom: 1px solid #ccc;">Feature</th><th style="padding: 8px; text-align: right; border-bottom: 1px solid #ccc;">Value</th></tr>
             <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Total Tap Count</td><td id="rightTapCount" style="padding: 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold; color: #00aa00;">-</td></tr>
             <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Tapping Frequency (Hz)</td><td id="rightTapFreq" style="padding: 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold; color: #00aa00;">-</td></tr>
@@ -57,13 +58,13 @@
           </table>
         </div>
       </div>
-      <div style="display: flex; gap: 20px; margin-top: 20px;">
-        <div id="chartContainerLeft" style="display: none; width: 500px; height: 300px; padding: 15px; background: #fafafa; border-radius: 8px; border: 1px solid #ddd;">
+      <div style="display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap;">
+        <div id="chartContainerLeft" style="display: none; width: 500px; max-width: 100%; height: 300px; padding: 15px; background: #fafafa; border-radius: 8px; border: 1px solid #ddd;">
           <canvas id="leftHandChart"></canvas>
         </div>
-        <div id="leftFeaturesContainer" style="display: none; padding: 15px; background: #f8f8f8; border-radius: 8px; border: 1px solid #ddd;">
+        <div id="leftFeaturesContainer" style="display: none; padding: 15px; background: #f8f8f8; border-radius: 8px; border: 1px solid #ddd; max-width: 100%;">
           <h4 style="margin: 0 0 12px 0; color: #00aaaa; border-bottom: 2px solid #00aaaa; padding-bottom: 8px;">Left Hand Features</h4>
-          <table style="width: 220px; border-collapse: collapse; font-size: 14px;">
+          <table style="width: 220px; max-width: 100%; border-collapse: collapse; font-size: 14px;">
             <tr style="background: #e8e8e8;"><th style="padding: 8px; text-align: left; border-bottom: 1px solid #ccc;">Feature</th><th style="padding: 8px; text-align: right; border-bottom: 1px solid #ccc;">Value</th></tr>
             <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Total Tap Count</td><td id="leftTapCount" style="padding: 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold; color: #00aaaa;">-</td></tr>
             <tr><td style="padding: 8px; border-bottom: 1px solid #eee;">Tapping Frequency (Hz)</td><td id="leftTapFreq" style="padding: 8px; border-bottom: 1px solid #eee; text-align: right; font-weight: bold; color: #00aaaa;">-</td></tr>
@@ -71,7 +72,7 @@
           </table>
         </div>
       </div>
-      <div style="position: relative; width: 640px; height: 480px; margin-top: 20px;">
+      <div style="position: relative; width: 640px; max-width: 100%; height: 480px; margin-top: 20px;">
         <video id="webcam" style="position: absolute; width: 100%; height: 100%;" autoplay playsinline></video>
         <canvas class="output_canvas" id="output_canvas" style="position: absolute; left: 0px; top: 0px; width: 100%; height: 100%;"></canvas>
         <div id="countdownBarContainer" style="position: absolute; top: 10px; left: 10px; right: 10px; height: 20px; background: rgba(0,0,0,0.5); border-radius: 10px; display: none;">

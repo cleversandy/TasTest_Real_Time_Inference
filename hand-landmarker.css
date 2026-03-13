@@ -73,6 +73,84 @@ footer {
   cursor: pointer;
 }
 
+@media screen and (max-width: 768px) {
+  body {
+    margin: 10px;
+    font-size: 14px;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+
+  h2 {
+    font-size: 1.2rem;
+  }
+
+  .videoView,
+  .detectOnClick {
+    width: 100%;
+    margin: 10px 0;
+  }
+
+  #chartContainer,
+  #chartContainerLeft {
+    width: 100% !important;
+    height: 250px !important;
+    box-sizing: border-box;
+  }
+
+  #rightFeaturesContainer,
+  #leftFeaturesContainer {
+    width: 100% !important;
+    box-sizing: border-box;
+    margin-top: 10px;
+  }
+
+  #rightFeaturesContainer table,
+  #leftFeaturesContainer table {
+    width: 100% !important;
+    font-size: 12px;
+  }
+
+  .videoView > div[style*="display: flex"] {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .videoView > div[style*="gap: 20px"] {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  #liveView > div[style*="position: relative"] {
+    width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 4/3;
+  }
+
+  #webcam, 
+  .output_canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  #countdown {
+    font-size: 32px;
+  }
+
+  #fpsDisplay {
+    font-size: 14px;
+  }
+}
+
+@media screen and (min-width: 769px) and (max-width: 1200px) {
+  #chartContainer,
+  #chartContainerLeft {
+    width: 400px !important;
+  }
+}
+
 .videoView p,
 .detectOnClick p {
   position: absolute;
