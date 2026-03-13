@@ -13,6 +13,11 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 @use "@material";
+html, body {
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
 body {
   font-family: roboto;
   margin: 2em;
@@ -36,9 +41,11 @@ em {
 video {
   clear: both;
   display: block;
-  transform: rotateY(180deg);
-  -webkit-transform: rotateY(180deg);
-  -moz-transform: rotateY(180deg);
+  transform: scaleX(-1);
+}
+
+#webcam {
+  transform: scaleX(-1);
 }
 
 section {
@@ -74,6 +81,12 @@ footer {
 }
 
 @media screen and (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
   body {
     margin: 10px;
     font-size: 14px;
@@ -123,16 +136,17 @@ footer {
     gap: 10px;
   }
 
-  #liveView > div[style*="position: relative"] {
+  #videoContainer {
     width: 100% !important;
     height: auto !important;
     aspect-ratio: 4/3;
   }
 
   #webcam, 
-  .output_canvas {
+  #output_canvas {
     width: 100% !important;
     height: 100% !important;
+    object-fit: contain;
   }
 
   #countdown {
@@ -177,9 +191,16 @@ footer {
 }
 
 .output_canvas {
-  transform: rotateY(180deg);
-  -webkit-transform: rotateY(180deg);
-  -moz-transform: rotateY(180deg);
+  transform: scaleX(-1);
+  width: 100% !important;
+  height: 100% !important;
+  left: 0 !important;
+  top: 0 !important;
+}
+
+#webcam {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .detectOnClick {

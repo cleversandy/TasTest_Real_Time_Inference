@@ -170,6 +170,7 @@ async function enableCam(event) {
   document.getElementById("rightFeaturesContainer").style.display = "none";
   document.getElementById("leftFeaturesContainer").style.display = "none";
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+  document.getElementById("videoContainer").style.display = "block";
   video.style.display = "block";
   canvasElement.style.display = "block";
   savedLandmarks = [];
@@ -251,6 +252,7 @@ async function startRecording(predictCallback, stream) {
   
   video.style.display = "none";
   canvasElement.style.display = "none";
+  document.getElementById("videoContainer").style.display = "none";
   
   enableWebcamButton.disabled = false;
   enableWebcamButton.querySelector('.mdc-button__label').textContent = "START";
@@ -293,15 +295,15 @@ function calculateDistance(landmarks) {
   return Math.sqrt(Math.pow(lm8.x - lm4.x, 2) + Math.pow(lm8.y - lm4.y, 2));
 }
 async function predictWebcam() {
-  if (video.videoWidth === 0 || video.videoHeight === 0) {
+  if (!video.videoWidth || !video.videoHeight || video.readyState < 2) {
     if (webcamRunning) {
       window.requestAnimationFrame(predictWebcam);
     }
     return;
   }
   
-  canvasElement.style.width = video.videoWidth;
-  canvasElement.style.height = video.videoHeight;
+  canvasElement.style.width = video.offsetWidth + "px";
+  canvasElement.style.height = video.offsetHeight + "px";
   canvasElement.width = video.videoWidth;
   canvasElement.height = video.videoHeight;
   
