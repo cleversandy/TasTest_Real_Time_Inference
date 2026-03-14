@@ -20,9 +20,11 @@ import {
 const demosSection = document.getElementById("demos");
 
 let handLandmarker = undefined;
+let faceDetector = undefined;
 let runningMode = "IMAGE";
 let enableWebcamButton;
 let webcamRunning = false;
+let blurFaces = false;
 
 // Before we can use HandLandmarker class we must wait for it to finish
 // loading. Machine Learning models can be large and take a moment to
@@ -44,6 +46,66 @@ const createHandLandmarker = async () => {
   demosSection.classList.remove("invisible");
 };
 createHandLandmarker();
+
+let lastFaceDetections = [];
+let faceDetectRunning = false;
+
+const createFaceDetector = async () => {
+  console.log("Loading Face API model...");
+  try {
+    const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    console.log("Face API model loaded!");
+    document.getElementById("blurFaceCheckbox").disabled = false;
+    document.getElementById("blurFaceCheckbox").parentElement.querySelector('span').textContent = "Blur Face (Privacy)";
+  } catch (e) {
+    console.error("Failed to load face detector:", e);
+    document.getElementById("blurFaceCheckbox").parentElement.innerHTML = 
+      '<span style="color: red; font-size: 14px;">Face blur failed to load</span>';
+  }
+};
+
+async function runFaceDetectionLoop() {
+  if (!blurFaces || !video || video.readyState < 2 || typeof faceapi === 'undefined' || !faceapi.nets.tinyFaceDetector.params) {
+    setTimeout(runFaceDetectionLoop, 200);
+    return;
+  }
+  if (faceDetectRunning) return;
+  faceDetectRunning = true;
+  try {
+    const detections = await faceapi.detectAllFaces(video, new faceapi.TinyFaceDetectorOptions());
+    lastFaceDetections = detections || [];
+  } catch (e) {
+    lastFaceDetections = [];
+  }
+  faceDetectRunning = false;
+  setTimeout(runFaceDetectionLoop, 100);
+}
+
+function startCheckBlur() {
+  if (typeof faceapi !== 'undefined') {
+    createFaceDetector();
+    runFaceDetectionLoop();
+  } else {
+    setTimeout(startCheckBlur, 500);
+  }
+}
+startCheckBlur();
+
+function blurFaceRegion(ctx, videoEl, x, y, width, height) {
+  ctx.save();
+  ctx.beginPath();
+  const centerX = x + width / 2;
+  const centerY = y + height / 2;
+  const radiusX = width / 2 * 1.2;
+  const radiusY = height / 2 * 1.2;
+  ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.filter = 'blur(20px)';
+  ctx.drawImage(videoEl, 0, 0, ctx.canvas.width, ctx.canvas.height);
+  ctx.filter = 'none';
+  ctx.restore();
+}
 
 /********************************************************************
 // Demo 1: Grab a bunch of images from the page and detection them
@@ -130,11 +192,20 @@ if (hasGetUserMedia()) {
   document.getElementById("downloadDistanceButton").addEventListener("click", downloadDistances);
   document.getElementById("downloadVideoButton").addEventListener("click", downloadVideo);
   document.getElementById("downloadFeaturesButton").addEventListener("click", downloadFeatures);
+  document.getElementById("blurFaceCheckbox").addEventListener("change", (e) => {
+    blurFaces = e.target.checked;
+    console.log("Blur checkbox changed:", blurFaces);
+    video.style.opacity = blurFaces ? '0' : '1';
+  });
 } else {
   console.warn("getUserMedia() is not supported by your browser");
 }
 
+let countdownRunning = false;
+
 async function startCountdown(seconds, callback) {
+  countdownRunning = true;
+  renderDuringCountdown();
   for (let i = seconds; i > 0; i--) {
     countdownElement.innerText = i;
     countdownElement.style.display = "block";
@@ -142,7 +213,33 @@ async function startCountdown(seconds, callback) {
   }
   countdownElement.innerText = "";
   countdownElement.style.display = "none";
+  countdownRunning = false;
   callback();
+}
+
+function renderDuringCountdown() {
+  if (!countdownRunning || !video || video.readyState < 2) {
+    if (countdownRunning) requestAnimationFrame(renderDuringCountdown);
+    return;
+  }
+  
+  canvasElement.width = video.videoWidth;
+  canvasElement.height = video.videoHeight;
+  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+  
+  if (blurFaces) {
+    canvasCtx.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+    if (lastFaceDetections.length > 0) {
+      for (const detection of lastFaceDetections) {
+        const box = detection.box;
+        blurFaceRegion(canvasCtx, video, box.x, box.y, box.width, box.height);
+      }
+    }
+  }
+  
+  if (countdownRunning) {
+    requestAnimationFrame(renderDuringCountdown);
+  }
 }
 
 async function enableCam(event) {
@@ -386,8 +483,20 @@ async function predictWebcam() {
       }
     }
   }
+  
   canvasCtx.save();
   canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+  
+  if (blurFaces && video.readyState >= 2) {
+    canvasCtx.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
+    if (lastFaceDetections.length > 0) {
+      for (const detection of lastFaceDetections) {
+        const box = detection.box;
+        blurFaceRegion(canvasCtx, video, box.x, box.y, box.width, box.height);
+      }
+    }
+  }
+  
   if (results.landmarks && results.handednesses) {
     for (let i = 0; i < results.landmarks.length; i++) {
       const landmarks = results.landmarks[i];
@@ -466,53 +575,82 @@ function downloadVideo() {
 let distanceChart = null;
 let leftHandChart = null;
 
-function findPeaks(data, options = {}) {
-  const { minProminence = 0.01 } = options;
-  
+function findPeaks(data) {
   if (!data || data.length < 3) {
     return { peaks: [], prominences: [], leftBases: [], rightBases: [] };
   }
   
   const n = data.length;
   
-  const diffs = [];
-  for (let i = 1; i < n; i++) {
-    diffs.push(data[i] - data[i - 1]);
+  // Step 1: Compute adaptive delta from the data's standard deviation
+  const mean = data.reduce((a, b) => a + b, 0) / n;
+  const variance = data.reduce((a, b) => a + (b - mean) * (b - mean), 0) / n;
+  const std = Math.sqrt(variance);
+  const delta = std * 0.3;
+  
+  // Step 2: Use alternating extrema detection (PeakDet algorithm)
+  // This naturally handles any speed - it tracks direction changes
+  const rawPeaks = [];
+  const rawValleys = [];
+  
+  let maxVal = -Infinity, maxIdx = 0;
+  let minVal = Infinity, minIdx = 0;
+  let lookingForMax = true;
+  
+  for (let i = 0; i < n; i++) {
+    const val = data[i];
+    
+    if (val > maxVal) { maxVal = val; maxIdx = i; }
+    if (val < minVal) { minVal = val; minIdx = i; }
+    
+    if (lookingForMax) {
+      if (val < maxVal - delta) {
+        rawPeaks.push(maxIdx);
+        minVal = val;
+        minIdx = i;
+        lookingForMax = false;
+      }
+    } else {
+      if (val > minVal + delta) {
+        rawValleys.push(minIdx);
+        maxVal = val;
+        maxIdx = i;
+        lookingForMax = true;
+      }
+    }
   }
   
+  // Step 3: Calculate prominence for each peak
   const peaks = [];
   const prominences = [];
   const leftBases = [];
   const rightBases = [];
   
-  for (let i = 1; i < diffs.length; i++) {
-    if (diffs[i - 1] > 0 && diffs[i] <= 0) {
-      const peakIdx = i;
-      const curr = data[peakIdx];
-      
-      let leftBase = 0;
-      for (let j = peakIdx - 1; j >= 0; j--) {
-        if (data[j] < curr) { leftBase = j; break; }
-        leftBase = j;
-      }
-      
-      let rightBase = n - 1;
-      for (let j = peakIdx + 1; j < n; j++) {
-        if (data[j] < curr) { rightBase = j; break; }
-        rightBase = j;
-      }
-      
-      const leftMin = Math.min(...data.slice(leftBase, peakIdx));
-      const rightMin = Math.min(...data.slice(peakIdx + 1, rightBase + 1));
-      const prom = curr - Math.max(leftMin, rightMin);
-      
-      if (prom >= minProminence) {
-        peaks.push(peakIdx);
-        prominences.push(prom);
-        leftBases.push(leftBase);
-        rightBases.push(rightBase);
-      }
+  for (const peakIdx of rawPeaks) {
+    if (peakIdx <= 0 || peakIdx >= n - 1) continue;
+    
+    const curr = data[peakIdx];
+    
+    // Find lowest point on left side before reaching a higher peak
+    let leftMin = curr;
+    for (let j = peakIdx - 1; j >= 0; j--) {
+      if (data[j] > curr) break;
+      if (data[j] < leftMin) leftMin = data[j];
     }
+    
+    // Find lowest point on right side before reaching a higher peak
+    let rightMin = curr;
+    for (let j = peakIdx + 1; j < n; j++) {
+      if (data[j] > curr) break;
+      if (data[j] < rightMin) rightMin = data[j];
+    }
+    
+    const prom = curr - Math.max(leftMin, rightMin);
+    
+    peaks.push(peakIdx);
+    prominences.push(prom);
+    leftBases.push(peakIdx);
+    rightBases.push(peakIdx);
   }
   
   return { peaks, prominences, leftBases, rightBases };
@@ -524,8 +662,6 @@ function findValleys(peaks, data) {
   if (!peaks || peaks.length < 2 || !data) {
     return valleys;
   }
-  
-  const n = data.length;
   
   for (let i = 0; i < peaks.length - 1; i++) {
     const startIdx = peaks[i];
@@ -550,9 +686,7 @@ function findValleys(peaks, data) {
 }
 
 function detectPeaksAndValleys(data, options = {}) {
-  const { minProminence = 0.01 } = options;
-  
-  const peaksResult = findPeaks(data, { minProminence });
+  const peaksResult = findPeaks(data);
   
   const peaks = peaksResult.peaks;
   const valleys = findValleys(peaks, data);

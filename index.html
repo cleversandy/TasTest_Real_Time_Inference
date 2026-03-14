@@ -10,6 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
   <script src="hand-landmarker.js" type="module"></script>
 </head>
 <body>
@@ -25,6 +26,10 @@
           <span class="mdc-button__ripple"></span>
           <span class="mdc-button__label">START</span>
         </button>
+          <label style="margin-left: 20px; display: flex; align-items: center; cursor: pointer;">
+          <input type="checkbox" id="blurFaceCheckbox" style="margin-right: 8px; width: 18px; height: 18px;" disabled>
+          <span style="font-size: 14px;">Blur Face (Privacy) - Loading...</span>
+        </label>
       </div>
       <div style="display: flex; flex-wrap: wrap; gap: 10px;">
         <button id="downloadButton" class="mdc-button mdc-button--raised" style="display: none;">
